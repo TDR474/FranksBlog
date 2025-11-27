@@ -1,0 +1,37 @@
+{
+  "compileOnSave": true,
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["core/*"]
+    },
+    // "rehypePlugins": ["rehypeKatex"],
+    // "remarkPlugins": ["remarkMath"],
+    "esModuleInterop": true,
+    "module": "commonjs",
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "target": "esnext",
+    //"module": "esnext",
+    "lib": ["dom", "es2022"],
+    "jsx": "preserve",
+    "sourceMap": false,
+    "strict": false,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowSyntheticDefaultImports": true,
+    "allowJs": true,
+    //"skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    //"esModuleInterop": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "incremental": true
+  },
+  "include": ["./**/*"],
+  "exclude": ["./**/*.spec.tsx", "node_modules"]
+}

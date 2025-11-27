@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Hand Particle System</title>
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- MediaPipe Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #75DAFE; /* 3b1b Cyan */
+        }
+
+        /* Video element hidden, used for processing */
+        #input_video {
+            display: none;
+        }
+
+        /* Main Canvas */
+        #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Futuristic UI Layer */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass through to canvas if needed */
+        }
+
+        /* HUD Corners */
+        .hud-corner {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border: 2px solid rgba(117, 218, 254, 0.3);
+            pointer-events: none;
+        }
+        .top-left { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+        .top-right { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+        .bottom-left { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+        .bottom-right { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+
+        /* Control Panel */
+        #controls {
+            position: absolute;
+            top: 50%;
+            right: 30px;
+            transform: translateY(-50%);
+            width: 240px;
+            background: rgba(0, 10, 20, 0.85);
+            border: 1px solid #75DAFE;
+            box-shadow: 0 0 15px rgba(117, 218, 254, 0.2);
+            padding: 20px;
+            border-radius: 8px;
+            pointer-events: auto; /* Enable interaction */
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        #controls.hidden {
+            opacity: 0;
+            transform: translateY(-50%) translateX(20px);
+            pointer-events: none;
+        }
+
+        /* Show Controls Button */
+        #show-controls-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(0, 10, 20, 0.85);
+            border: 1px solid #75DAFE;
+            color: #75DAFE;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 1px;
+            pointer-events: auto;
+            display: none; /* Hidden by default */
+            z-index: 20;
+        }
+
+        #header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(117, 218, 254, 0.3);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #fff;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #75DAFE;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+        }
+        .close-btn:hover { color: #fff; }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            accent-color: #75DAFE;
+        }
+
+        /* Color Input Styling */
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+
+        /* Status Display */
+        #status-panel {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            pointer-events: none;
+        }
+        
+        .status-item {
+            font-size: 14px;
+            margin-bottom: 5px;
+            text-shadow: 0 0 5px #75DAFE;
+        }
+
+        .data-value {
+            font-weight: bold;
+            color: #fff;
+        }
+
+        /* Loading Overlay */
+        #loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(117, 218, 254, 0.3);
+            border-top: 3px solid #75DAFE;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .loading-text {
+            margin-top: 20px;
+            letter-spacing: 2px;
+            font-size: 14px;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Mobile specific adjustments */
+        @media (max-width: 768px) {
+            #controls {
+                top: auto;
+                bottom: 30px;
+                right: 50%;
+                transform: translateX(50%);
+                width: 80%;
+            }
+            #controls.hidden {
+                 transform: translateX(50%) translateY(20px);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Camera Input (Hidden) -->
+    <video id="input_video"></video>
+
+    <!-- Three.js Output -->
+    <canvas id="output_canvas"></canvas>
+
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="loading-text">INITIALIZING NEURAL LINK...</div>
+    </div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <div class="hud-corner top-left"></div>
+        <div class="hud-corner top-right"></div>
+        <div class="hud-corner bottom-left"></div>
+        <div class="hud-corner bottom-right"></div>
+
+        <div id="status-panel">
+            <div class="status-item">SYSTEM: <span id="sys-status" class="data-value">WAITING FOR HAND</span></div>
+            <div class="status-item">MODE: <span id="gesture-mode" class="data-value">--</span></div>
+            <div class="status-item">FPS: <span id="fps-counter" class="data-value">0</span></div>
+        </div>
+
+        <button id="show-controls-btn">SHOW CONTROLS</button>
+
+        <div id="controls">
+            <div id="header-row">
+                <h2>Particle Control</h2>
+                <button class="close-btn" id="hide-controls-btn" title="Hide Controls">✕</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Sensitivity</label>
+                <input type="range" id="sensitivity-slider" min="0.5" max="2.0" step="0.1" value="1.0">
+            </div>
+
+            <div class="control-group">
+                <label>Density (Count)</label>
+                <input type="range" id="density-slider" min="5000" max="40000" step="1000" value="25000">
+            </div>
+
+            <div class="control-group">
+                <label>Knot Thickness</label>
+                <input type="range" id="thickness-slider" min="0.1" max="2.0" step="0.1" value="0.5">
+            </div>
+
+            <div class="control-group">
+                <label>Particle Size</label>
+                <input type="range" id="size-slider" min="1.0" max="8.0" step="0.5" value="3.5">
+            </div>
+
+            <div class="control-group">
+                <label>Texture Resolution <span id="res-val" style="float:right; color:#fff">256px</span></label>
+                <input type="range" id="resolution-slider" min="32" max="512" step="32" value="256">
+            </div>
+
+            <div class="control-group">
+                <label>Brightness (Opacity)</label>
+                <input type="range" id="brightness-slider" min="0.1" max="1.0" step="0.1" value="0.8">
+            </div>
+
+            <div class="control-group">
+                <label>Core Color (Base)</label>
+                <input type="color" id="color-picker" value="#75DAFE">
+            </div>
+            
+            <div style="font-size: 10px; color: #555; text-align: center; margin-top: 10px;">
+                Open/Close to expand.<br>Wave hand to rotate.
+            </div>
+        </div>
+    </div>
+
+<script>
+    /**
+     * CONFIGURATION
+     */
+    const CONFIG = {
+        particleCount: 40000, // Increased Max Capacity
+        baseColor: 0x75DAFE,
+        camFov: 75,
+        camZ: 400
+    };
+
+    /**
+     * STATE MANAGEMENT
+     */
+    const state = {
+        handDetected: false,
+        openness: 0.5,
+        handX: 0,
+        handY: 0,
+        sensitivity: 1.0,
+        density: 25000,
+        thickness: 0.5,
+        size: 3.5,
+        opacity: 0.8,
+        resolution: 256,
+        baseHue: 0.5,
+        // Rotation Physics
+        prevHandX: 0,
+        prevHandY: 0,
+        rotVelocityX: 0,
+        rotVelocityY: 0
+    };
+
+    /**
+     * THREE.JS SETUP
+     */
+    const canvas = document.getElementById('output_canvas');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x000000, 0.001);
+
+    const camera = new THREE.PerspectiveCamera(CONFIG.camFov, window.innerWidth / window.innerHeight, 1, 2000);
+    camera.position.z = CONFIG.camZ;
+
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    // Particle System
+    const particlesGeometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(CONFIG.particleCount * 3);
+    const velocities = new Float32Array(CONFIG.particleCount * 3);
+    const colors = new Float32Array(CONFIG.particleCount * 3);
+    
+    // 3Blue1Brown Aesthetic Palette
+    const palette = [
+        new THREE.Color("#75DAFE"), // Cyan
+        new THREE.Color("#2C859A"), // Darker Teal
+        new THREE.Color("#75DAFE"), // Cyan duplicate for weighting
+        new THREE.Color("#C59C6E")  // Gold/Brown
+    ];
+
+    const assignedColors = [];
+    
+    for (let i = 0; i < CONFIG.particleCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos((Math.random() * 2) - 1);
+        const r = 100 + Math.random() * 100;
+
+        positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        positions[i * 3 + 2] = r * Math.cos(phi);
+        
+        velocities[i * 3] = 0;
+        velocities[i * 3 + 1] = 0;
+        velocities[i * 3 + 2] = 0;
+
+        const paletteIndex = i % 4;
+        assignedColors.push(palette[paletteIndex]);
+
+        colors[i * 3] = palette[paletteIndex].r;
+        colors[i * 3 + 1] = palette[paletteIndex].g;
+        colors[i * 3 + 2] = palette[paletteIndex].b;
+    }
+
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    
+    const particleParams = [];
+    for(let i=0; i<CONFIG.particleCount; i++) {
+        particleParams.push({
+            u: Math.random() * Math.PI * 2,
+            v: (Math.random() - 0.5) * 2,
+            phi_offset: Math.random() * Math.PI, // Angle from z-axis (0 to PI)
+            offset: Math.random() * 10,
+            speed: 0.002 + Math.random() * 0.004
+        });
+    }
+
+    function createParticleTexture(size = 256) {
+        // High Resolution Texture
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext('2d');
+        const gradient = context.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+        gradient.addColorStop(0, 'rgba(255,255,255,1)');
+        gradient.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+        gradient.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, size, size);
+        const texture = new THREE.Texture(canvas);
+        texture.needsUpdate = true;
+        return texture;
+    }
+
+    const material = new THREE.PointsMaterial({
+        size: state.size,
+        map: createParticleTexture(256), // Init with default
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        transparent: true,
+        opacity: state.opacity,
+        vertexColors: true
+    });
+
+    const particleSystem = new THREE.Points(particlesGeometry, material);
+    scene.add(particleSystem);
+
+    /**
+     * MEDIAPIPE HANDS SETUP
+     */
+    const videoElement = document.getElementById('input_video');
+    const statusEl = document.getElementById('sys-status');
+    const modeEl = document.getElementById('gesture-mode');
+    const loader = document.getElementById('loader');
+
+    function onResults(results) {
+        if (loader.style.opacity !== '0') {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.style.display = 'none', 500);
+        }
+
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            state.handDetected = true;
+            statusEl.innerText = "LINK ESTABLISHED";
+            statusEl.style.color = "#75DAFE";
+
+            const landmarks = results.multiHandLandmarks[0];
+
+            // 1. Calculate Centroid
+            let centerX = 0, centerY = 0;
+            landmarks.forEach(lm => {
+                centerX += lm.x;
+                centerY += lm.y;
+            });
+            centerX /= landmarks.length;
+            centerY /= landmarks.length;
+
+            state.handX = -(centerX - 0.5) * 2; // Inverted X axis for natural mirroring
+            state.handY = -(centerY - 0.5) * 2; // Up is Positive
+
+            // 2. Calculate Openness
+            const wrist = landmarks[0];
+            const indexMCP = landmarks[5];
+            
+            const refDistance = Math.sqrt(
+                Math.pow(wrist.x - indexMCP.x, 2) + 
+                Math.pow(wrist.y - indexMCP.y, 2) +
+                Math.pow(wrist.z - indexMCP.z, 2)
+            );
+
+            const tips = [4, 8, 12, 16, 20];
+            let totalTipDist = 0;
+            tips.forEach(idx => {
+                const tip = landmarks[idx];
+                const dist = Math.sqrt(
+                    Math.pow(wrist.x - tip.x, 2) + 
+                    Math.pow(wrist.y - tip.y, 2) + 
+                    Math.pow(wrist.z - tip.z, 2)
+                );
+                totalTipDist += dist;
+            });
+            const avgTipDist = totalTipDist / tips.length;
+            const ratio = avgTipDist / refDistance;
+            
+            const minRatio = 1.0; 
+            const maxRatio = 1.0 + (1.2 / state.sensitivity); 
+            
+            let rawOpenness = (ratio - minRatio) / (maxRatio - minRatio);
+            rawOpenness = Math.max(0, Math.min(1, rawOpenness));
+
+            state.openness += (rawOpenness - state.openness) * 0.1;
+
+            if(state.openness < 0.3) modeEl.innerText = "STATUS: CONTRACTION";
+            else if (state.openness > 0.7) modeEl.innerText = "STATUS: EXPANSION";
+            else modeEl.innerText = "STATUS: STABLE";
+
+        } else {
+            state.handDetected = false;
+            statusEl.innerText = "SCANNING...";
+            statusEl.style.color = "#75DAFE";
+            modeEl.innerText = "--";
+            
+            // Slowly center
+            state.handX = state.handX * 0.95;
+            state.handY = state.handY * 0.95;
+            
+            state.prevHandX = 0;
+            state.prevHandY = 0;
+
+            const time = Date.now() * 0.001;
+            state.openness = 0.5 + Math.sin(time) * 0.2; 
+        }
+    }
+
+    const hands = new Hands({locateFile: (file) => {
+        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+    }});
+
+    hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+
+    hands.onResults(onResults);
+
+    const cameraUtils = new Camera(videoElement, {
+        onFrame: async () => {
+            await hands.send({image: videoElement});
+        },
+        width: 640,
+        height: 480
+    });
+    cameraUtils.start();
+
+    /**
+     * ANIMATION & PHYSICS
+     */
+    
+    // Listeners
+    document.getElementById('color-picker').addEventListener('input', (e) => {
+        const c = new THREE.Color(e.target.value);
+        palette[0] = c;
+        palette[2] = c;
+    });
+
+    document.getElementById('sensitivity-slider').addEventListener('input', (e) => {
+        state.sensitivity = parseFloat(e.target.value);
+    });
+
+    document.getElementById('density-slider').addEventListener('input', (e) => {
+        state.density = parseInt(e.target.value);
+    });
+
+    document.getElementById('thickness-slider').addEventListener('input', (e) => {
+        state.thickness = parseFloat(e.target.value);
+    });
+
+    document.getElementById('size-slider').addEventListener('input', (e) => {
+        state.size = parseFloat(e.target.value);
+    });
+    
+    // Resolution Control
+    document.getElementById('resolution-slider').addEventListener('change', (e) => {
+        const newSize = parseInt(e.target.value);
+        state.resolution = newSize;
+        document.getElementById('res-val').innerText = newSize + "px";
+        
+        // Regenerate texture
+        const oldMap = material.map;
+        material.map = createParticleTexture(newSize);
+        material.needsUpdate = true;
+        
+        // Cleanup
+        if(oldMap) oldMap.dispose();
+    });
+    
+    // Live update of resolution label (no regen)
+    document.getElementById('resolution-slider').addEventListener('input', (e) => {
+        document.getElementById('res-val').innerText = e.target.value + "px";
+    });
+
+    document.getElementById('brightness-slider').addEventListener('input', (e) => {
+        state.opacity = parseFloat(e.target.value);
+    });
+
+    // Hide/Show Controls
+    const controlsPanel = document.getElementById('controls');
+    const hideBtn = document.getElementById('hide-controls-btn');
+    const showBtn = document.getElementById('show-controls-btn');
+
+    hideBtn.addEventListener('click', () => {
+        controlsPanel.classList.add('hidden');
+        showBtn.style.display = 'block';
+    });
+
+    showBtn.addEventListener('click', () => {
+        controlsPanel.classList.remove('hidden');
+        showBtn.style.display = 'none';
+    });
+
+    let frameCount = 0;
+    let lastTime = performance.now();
+    const fpsEl = document.getElementById('fps-counter');
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        // Update Material from State
+        material.size = state.size;
+        material.opacity = state.opacity;
+        
+        // Update Density (Draw Range)
+        particlesGeometry.setDrawRange(0, state.density);
+
+        const time = Date.now() * 0.001;
+        const knotScale = 75; 
+        const morphFactor = 1 - Math.pow(1 - state.openness, 3);
+        const springStrength = 0.08;
+
+        const positions = particleSystem.geometry.attributes.position.array;
+        const colors = particleSystem.geometry.attributes.color.array;
+        const tmpColor = new THREE.Color();
+        const coreColor = new THREE.Color(0xFFFFFF);
+        
+        // --- POSITION TRACKING (Parallax) ---
+        // Smoothly move the container to follow the hand
+        const targetPosX = state.handX * 200; // Range of motion
+        const targetPosY = state.handY * 150; 
+        
+        particleSystem.position.x += (targetPosX - particleSystem.position.x) * 0.1;
+        particleSystem.position.y += (targetPosY - particleSystem.position.y) * 0.1;
+
+        // Iterate only through active particles for performance optimization
+        for (let i = 0; i < state.density; i++) {
+            const ix = i * 3;
+            const iy = i * 3 + 1;
+            const iz = i * 3 + 2;
+
+            const px = positions[ix];
+            const py = positions[iy];
+            const pz = positions[iz];
+            
+            // --- TARGET POSITIONS ---
+            const singularityX = 0;
+            const singularityY = 0;
+            const singularityZ = 0;
+
+            const p = particleParams[i];
+            p.u += p.speed * state.openness * 1.5; 
+            const u = p.u;
+            
+            const centerKnotX = (2 + Math.cos(3 * u)) * Math.cos(2 * u);
+            const centerKnotY = (2 + Math.cos(3 * u)) * Math.sin(2 * u);
+            const centerKnotZ = Math.sin(3 * u);
+
+            const tubeRadius = state.thickness;
+            // Use 'v' for theta (azimuthal angle)
+            const theta = p.v * Math.PI;
+            // Use 'phi_offset' for phi (polar angle)
+            const phi = p.phi_offset;
+
+            const offsetMag = tubeRadius * (0.8 + 0.2 * Math.sin(p.offset + time * 2));
+
+            // Spherical to Cartesian conversion for offset
+            // x = r * sin(phi) * cos(theta)
+            // y = r * sin(phi) * sin(theta)
+            // z = r * cos(phi)
+            const offsetX = offsetMag * Math.sin(phi) * Math.cos(theta);
+            const offsetY = offsetMag * Math.sin(phi) * Math.sin(theta);
+            const offsetZ = offsetMag * Math.cos(phi);
+
+            // Apply the offset to the knot's center position.
+            // The 0.5 scaling factor is to keep the overall thickness similar to before.
+            let kx = centerKnotX + offsetX * 0.5;
+            let ky = centerKnotY + offsetY * 0.5;
+            let kz = centerKnotZ + offsetZ * 0.5;
+
+            const knotX = kx * knotScale;
+            const knotY = ky * knotScale;
+            const knotZ = kz * knotScale;
+
+            const destX = singularityX * (1 - morphFactor) + knotX * morphFactor;
+            const destY = singularityY * (1 - morphFactor) + knotY * morphFactor;
+            const destZ = singularityZ * (1 - morphFactor) + knotZ * morphFactor;
+
+            // --- COLORS ---
+            const targetColor = assignedColors[i];
+            if (state.openness < 0.1) {
+                tmpColor.lerpColors(coreColor, targetColor, state.openness * 10);
+            } else {
+                tmpColor.copy(targetColor);
+                const wave = Math.sin(u * 2 - time * 2);
+                if (wave > 0.8) {
+                    tmpColor.offsetHSL(0, 0, 0.2); 
+                }
+            }
+
+            colors[ix] += (tmpColor.r - colors[ix]) * 0.05;
+            colors[iy] += (tmpColor.g - colors[iy]) * 0.05;
+            colors[iz] += (tmpColor.b - colors[iz]) * 0.05;
+
+            // --- PHYSICS ---
+            velocities[ix] += (destX - px) * springStrength;
+            velocities[iy] += (destY - py) * springStrength;
+            velocities[iz] += (destZ - pz) * springStrength;
+
+            if (state.openness < 0.2) {
+                 velocities[ix] += (Math.random() - 0.5) * 5;
+                 velocities[iy] += (Math.random() - 0.5) * 5;
+                 velocities[iz] += (Math.random() - 0.5) * 5;
+            } else {
+                velocities[ix] += (Math.random() - 0.5) * 0.5;
+                velocities[iy] += (Math.random() - 0.5) * 0.5;
+                velocities[iz] += (Math.random() - 0.5) * 0.5;
+            }
+
+            const friction = 0.85;
+            velocities[ix] *= friction;
+            velocities[iy] *= friction;
+            velocities[iz] *= friction;
+
+            positions[ix] += velocities[ix];
+            positions[iy] += velocities[iy];
+            positions[iz] += velocities[iz];
+        }
+
+        particleSystem.geometry.attributes.position.needsUpdate = true;
+        particleSystem.geometry.attributes.color.needsUpdate = true;
+        
+        // --- ROTATION CONTROL & ORIENTATION RESET ---
+        
+        if (state.handDetected) {
+            // Calculate velocity (delta)
+            const dX = state.handX - state.prevHandX;
+            const dY = state.handY - state.prevHandY;
+            
+            // Add to momentum
+            state.rotVelocityY += dX * 0.1; 
+            
+            // FLIPPED Y-AXIS ROTATION:
+            state.rotVelocityX -= dY * 0.1;
+            
+            // Store previous
+            state.prevHandX = state.handX;
+            state.prevHandY = state.handY;
+        } 
+        
+        // Reset Orientation when Contracted (Fist)
+        // If openness drops below 0.15, smoothly dampen rotation back to 0,0,0
+        if (state.openness < 0.15) {
+             // Dampen current velocity strongly
+             state.rotVelocityX *= 0.5;
+             state.rotVelocityY *= 0.5;
+             
+             // Smoothly lerp rotation angles to 0
+             // We use a simple lerp. For 360 flips this might take the long way, but for 
+             // reset functionality it works visually well as a "centering" magnetic force.
+             particleSystem.rotation.x += (0 - particleSystem.rotation.x) * 0.1;
+             particleSystem.rotation.y += (0 - particleSystem.rotation.y) * 0.1;
+             particleSystem.rotation.z += (0 - particleSystem.rotation.z) * 0.1;
+        } else {
+             // Normal friction when not resetting
+             state.rotVelocityX *= 0.90;
+             state.rotVelocityY *= 0.90;
+             
+             // Apply idle rotation if no interaction, otherwise use momentum
+             if (!state.handDetected && Math.abs(state.rotVelocityX) < 0.001 && Math.abs(state.rotVelocityY) < 0.001) {
+                  particleSystem.rotation.y += 0.002; // Idle spin
+             } else {
+                  particleSystem.rotation.y += state.rotVelocityY;
+                  particleSystem.rotation.x += state.rotVelocityX;
+             }
+        }
+
+        renderer.render(scene, camera);
+        
+        frameCount++;
+        if (Date.now() - lastTime >= 1000) {
+            fpsEl.innerText = frameCount;
+            frameCount = 0;
+            lastTime = Date.now();
+        }
+    }
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+
+</script>
+</body>
+</html>
