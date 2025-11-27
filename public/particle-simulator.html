@@ -101,7 +101,7 @@
             font-size: 12px;
             letter-spacing: 1px;
             pointer-events: auto;
-            display: none; /* Hidden by default */
+            display: block; /* Visible by default now */
             z-index: 20;
         }
 
@@ -205,7 +205,8 @@
             letter-spacing: 2px;
             font-size: 14px;
             text-align: center;
-            max-width: 80%;
+            max-width: 600px;
+            line-height: 1.6;
         }
         
         #start-btn {
@@ -225,6 +226,15 @@
             background: #75DAFE;
             color: #000;
             box-shadow: 0 0 15px rgba(117, 218, 254, 0.5);
+        }
+        
+        .error-box {
+            border: 1px solid #ff4444;
+            background: rgba(20,0,0,0.8);
+            padding: 20px;
+            border-radius: 8px;
+            color: #ffaaaa;
+            margin-bottom: 20px;
         }
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -247,7 +257,8 @@
 <body>
 
     <!-- Camera Input (Hidden) -->
-    <video id="input_video"></video>
+    <!-- Added playsinline for better mobile compatibility -->
+    <video id="input_video" playsinline webkit-playsinline></video>
 
     <!-- Three.js Output -->
     <canvas id="output_canvas"></canvas>
@@ -255,8 +266,10 @@
     <!-- Loading Screen -->
     <div id="loader">
         <div class="spinner" style="display:none"></div>
-        <div class="loading-text">SYSTEM READY</div>
-        <button id="start-btn">INITIALIZE CAMERA</button>
+        <div id="loader-content" style="display:flex; flex-direction:column; align-items:center;">
+            <div class="loading-text" id="status-text">SYSTEM READY</div>
+            <button id="start-btn">INITIALIZE CAMERA</button>
+        </div>
     </div>
 
     <!-- UI Overlay -->
@@ -274,7 +287,8 @@
 
         <button id="show-controls-btn">SHOW CONTROLS</button>
 
-        <div id="controls">
+        <!-- Added class="hidden" to hide by default -->
+        <div id="controls" class="hidden">
             <div id="header-row">
                 <h2>Particle Control</h2>
                 <button class="close-btn" id="hide-controls-btn" title="Hide Controls">✕</button>
@@ -326,7 +340,7 @@
      * CONFIGURATION
      */
     const CONFIG = {
-        particleCount: 40000, // Increased Max Capacity
+        particleCount: 40000, 
         baseColor: 0x75DAFE,
         camFov: 75,
         camZ: 400
@@ -340,14 +354,13 @@
         openness: 0.5,
         handX: 0,
         handY: 0,
-        sensitivity: 1.0,
+        sensitivity: 1.4,
         density: 25000,
-        thickness: 0.5,
+        thickness: 0.9,
         size: 3.5,
         opacity: 0.8,
         resolution: 256,
         baseHue: 0.5,
-        // Rotation Physics
         prevHandX: 0,
         prevHandY: 0,
         rotVelocityX: 0,
@@ -371,7 +384,7 @@
     // Particle System
     const particlesGeometry = new THREE.BufferGeometry();
     const positions = new Float32Array(CONFIG.particleCount * 3);
-    const velocities = new Float32Array(CONFIG.particleCount * 3);
+    const velocities = new Float32Array(CONFIG.particleCount * 3); // Added missing velocities array
     const colors = new Float32Array(CONFIG.particleCount * 3);
     
     // 3Blue1Brown Aesthetic Palette
@@ -393,10 +406,11 @@
         positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
         positions[i * 3 + 2] = r * Math.cos(phi);
         
+        // Initialize velocities to 0
         velocities[i * 3] = 0;
         velocities[i * 3 + 1] = 0;
         velocities[i * 3 + 2] = 0;
-
+        
         const paletteIndex = i % 4;
         assignedColors.push(palette[paletteIndex]);
 
@@ -413,14 +427,13 @@
         particleParams.push({
             u: Math.random() * Math.PI * 2,
             v: (Math.random() - 0.5) * 2,
-            phi_offset: Math.random() * Math.PI, // Angle from z-axis (0 to PI)
+            phi_offset: Math.random() * Math.PI, 
             offset: Math.random() * 10,
             speed: 0.002 + Math.random() * 0.004
         });
     }
 
     function createParticleTexture(size = 256) {
-        // High Resolution Texture
         const canvas = document.createElement('canvas');
         canvas.width = size;
         canvas.height = size;
@@ -439,7 +452,7 @@
 
     const material = new THREE.PointsMaterial({
         size: state.size,
-        map: createParticleTexture(256), // Init with default
+        map: createParticleTexture(256), 
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         transparent: true,
@@ -457,12 +470,12 @@
     const statusEl = document.getElementById('sys-status');
     const modeEl = document.getElementById('gesture-mode');
     const loader = document.getElementById('loader');
+    const loaderContent = document.getElementById('loader-content');
     const startBtn = document.getElementById('start-btn');
     const spinner = loader.querySelector('.spinner');
-    const loadingText = loader.querySelector('.loading-text');
+    const loadingText = document.getElementById('status-text');
 
     function onResults(results) {
-        // Hide loader when we get results (meaning system is running)
         if (loader.style.opacity !== '0') {
             loader.style.opacity = '0';
             setTimeout(() => loader.style.display = 'none', 500);
@@ -475,7 +488,6 @@
 
             const landmarks = results.multiHandLandmarks[0];
 
-            // 1. Calculate Centroid
             let centerX = 0, centerY = 0;
             landmarks.forEach(lm => {
                 centerX += lm.x;
@@ -484,10 +496,9 @@
             centerX /= landmarks.length;
             centerY /= landmarks.length;
 
-            state.handX = -(centerX - 0.5) * 2; // Inverted X axis for natural mirroring
-            state.handY = -(centerY - 0.5) * 2; // Up is Positive
+            state.handX = -(centerX - 0.5) * 2; 
+            state.handY = -(centerY - 0.5) * 2; 
 
-            // 2. Calculate Openness
             const wrist = landmarks[0];
             const indexMCP = landmarks[5];
             
@@ -529,7 +540,6 @@
             statusEl.style.color = "#75DAFE";
             modeEl.innerText = "--";
             
-            // Slowly center
             state.handX = state.handX * 0.95;
             state.handY = state.handY * 0.95;
             
@@ -554,7 +564,6 @@
 
     hands.onResults(onResults);
 
-    // Initialize Camera Utils but do NOT start automatically
     const cameraUtils = new Camera(videoElement, {
         onFrame: async () => {
             await hands.send({image: videoElement});
@@ -563,22 +572,34 @@
         height: 480
     });
 
-    // Start Button Logic
+    // Start Button Logic with Detailed Diagnostics
     startBtn.addEventListener('click', () => {
         startBtn.style.display = 'none';
         spinner.style.display = 'block';
         loadingText.innerText = "REQUESTING CAMERA ACCESS...";
-        
-        // Explicitly request user media to trigger permissions cleanly
+
+        // 1. Check for Secure Context
+        if (window.isSecureContext === false && window.location.hostname !== 'localhost') {
+            loadingText.innerHTML = `
+                <div class='error-box'>
+                    <strong>SECURITY ERROR</strong><br>
+                    Camera access requires HTTPS or Localhost.<br>
+                    Current Origin: ${window.location.origin}
+                </div>`;
+            spinner.style.display = 'none';
+            return;
+        }
+
+        // 2. Request Permission
         navigator.mediaDevices.getUserMedia({ video: true })
             .then((stream) => {
-                // Permission granted. Stop our test stream.
                 stream.getTracks().forEach(track => track.stop());
                 
-                // Now start MediaPipe
+                loadingText.innerText = "INITIALIZING AI MODEL...";
+                
                 cameraUtils.start().catch(err => {
                     console.error(err);
-                    loadingText.innerText = "MEDIAPIPE ERROR: " + err;
+                    loadingText.innerText = "MEDIAPIPE ERROR: " + err.message;
                     spinner.style.display = 'none';
                     startBtn.style.display = 'block';
                 });
@@ -587,14 +608,25 @@
                 console.error("Camera Error:", err);
                 spinner.style.display = 'none';
                 startBtn.style.display = 'block';
+                startBtn.innerText = "RETRY CAMERA";
                 
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                     loadingText.innerHTML = "ACCESS DENIED<br><span style='font-size:12px; color:#aaa'>Click the lock icon in your address bar to reset permissions.</span>";
-                     alert("Camera access is blocked by the browser. Please click the lock icon in the URL bar (top left), set Camera to 'Allow', and refresh the page.");
+                     // Updated Error Message for Permissions Policy and Headers
+                     loadingText.innerHTML = `
+                        <div class='error-box' style='text-align:left'>
+                            <strong style='color:#fff'>CAMERA BLOCKED BY SERVER OR BROWSER</strong><br><br>
+                            <ul style='padding-left:20px; margin:10px 0;'>
+                                <li><strong>Permissions Policy Header:</strong> Your Railway/Web Server is likely sending a <code>Permissions-Policy</code> header that blocks the camera. Check your server config or buildpack settings.</li>
+                                <li><strong>macOS Permissions:</strong> Check <em>System Settings > Privacy > Camera</em>.</li>
+                                <li><strong>Browser Block:</strong> Click the "Lock" icon 🔒 in the URL bar and ensure Camera is "Allow".</li>
+                            </ul>
+                        </div>`;
                 } else if (err.name === 'NotFoundError') {
-                    loadingText.innerText = "NO CAMERA FOUND";
+                    loadingText.innerText = "NO WEBCAM DETECTED";
+                } else if (err.name === 'NotReadableError') {
+                    loadingText.innerText = "CAMERA IN USE BY ANOTHER APP";
                 } else {
-                    loadingText.innerText = "ERROR: " + err.name;
+                    loadingText.innerText = `ERROR: ${err.name} - ${err.message}`;
                 }
             });
     });
@@ -626,22 +658,18 @@
         state.size = parseFloat(e.target.value);
     });
     
-    // Resolution Control
     document.getElementById('resolution-slider').addEventListener('change', (e) => {
         const newSize = parseInt(e.target.value);
         state.resolution = newSize;
         document.getElementById('res-val').innerText = newSize + "px";
         
-        // Regenerate texture
         const oldMap = material.map;
         material.map = createParticleTexture(newSize);
         material.needsUpdate = true;
         
-        // Cleanup
         if(oldMap) oldMap.dispose();
     });
     
-    // Live update of resolution label (no regen)
     document.getElementById('resolution-slider').addEventListener('input', (e) => {
         document.getElementById('res-val').innerText = e.target.value + "px";
     });
@@ -650,7 +678,6 @@
         state.opacity = parseFloat(e.target.value);
     });
 
-    // Hide/Show Controls
     const controlsPanel = document.getElementById('controls');
     const hideBtn = document.getElementById('hide-controls-btn');
     const showBtn = document.getElementById('show-controls-btn');
@@ -672,11 +699,8 @@
     function animate() {
         requestAnimationFrame(animate);
 
-        // Update Material from State
         material.size = state.size;
         material.opacity = state.opacity;
-        
-        // Update Density (Draw Range)
         particlesGeometry.setDrawRange(0, state.density);
 
         const time = Date.now() * 0.001;
@@ -689,15 +713,12 @@
         const tmpColor = new THREE.Color();
         const coreColor = new THREE.Color(0xFFFFFF);
         
-        // --- POSITION TRACKING (Parallax) ---
-        // Smoothly move the container to follow the hand
-        const targetPosX = state.handX * 200; // Range of motion
+        const targetPosX = state.handX * 200; 
         const targetPosY = state.handY * 150; 
         
         particleSystem.position.x += (targetPosX - particleSystem.position.x) * 0.1;
         particleSystem.position.y += (targetPosY - particleSystem.position.y) * 0.1;
 
-        // Iterate only through active particles for performance optimization
         for (let i = 0; i < state.density; i++) {
             const ix = i * 3;
             const iy = i * 3 + 1;
@@ -707,7 +728,6 @@
             const py = positions[iy];
             const pz = positions[iz];
             
-            // --- TARGET POSITIONS ---
             const singularityX = 0;
             const singularityY = 0;
             const singularityZ = 0;
@@ -721,23 +741,15 @@
             const centerKnotZ = Math.sin(3 * u);
 
             const tubeRadius = state.thickness;
-            // Use 'v' for theta (azimuthal angle)
             const theta = p.v * Math.PI;
-            // Use 'phi_offset' for phi (polar angle)
             const phi = p.phi_offset;
 
             const offsetMag = tubeRadius * (0.8 + 0.2 * Math.sin(p.offset + time * 2));
 
-            // Spherical to Cartesian conversion for offset
-            // x = r * sin(phi) * cos(theta)
-            // y = r * sin(phi) * sin(theta)
-            // z = r * cos(phi)
             const offsetX = offsetMag * Math.sin(phi) * Math.cos(theta);
             const offsetY = offsetMag * Math.sin(phi) * Math.sin(theta);
             const offsetZ = offsetMag * Math.cos(phi);
 
-            // Apply the offset to the knot's center position.
-            // The 0.5 scaling factor is to keep the overall thickness similar to before.
             let kx = centerKnotX + offsetX * 0.5;
             let ky = centerKnotY + offsetY * 0.5;
             let kz = centerKnotZ + offsetZ * 0.5;
@@ -750,7 +762,6 @@
             const destY = singularityY * (1 - morphFactor) + knotY * morphFactor;
             const destZ = singularityZ * (1 - morphFactor) + knotZ * morphFactor;
 
-            // --- COLORS ---
             const targetColor = assignedColors[i];
             if (state.openness < 0.1) {
                 tmpColor.lerpColors(coreColor, targetColor, state.openness * 10);
@@ -766,7 +777,6 @@
             colors[iy] += (tmpColor.g - colors[iy]) * 0.05;
             colors[iz] += (tmpColor.b - colors[iz]) * 0.05;
 
-            // --- PHYSICS ---
             velocities[ix] += (destX - px) * springStrength;
             velocities[iy] += (destY - py) * springStrength;
             velocities[iz] += (destZ - pz) * springStrength;
@@ -794,43 +804,30 @@
         particleSystem.geometry.attributes.position.needsUpdate = true;
         particleSystem.geometry.attributes.color.needsUpdate = true;
         
-        // --- ROTATION CONTROL & ORIENTATION RESET ---
-        
         if (state.handDetected) {
-            // Calculate velocity (delta)
             const dX = state.handX - state.prevHandX;
             const dY = state.handY - state.prevHandY;
             
-            // Add to momentum
             state.rotVelocityY += dX * 0.1; 
-            
-            // FLIPPED Y-AXIS ROTATION:
             state.rotVelocityX -= dY * 0.1;
             
-            // Store previous
             state.prevHandX = state.handX;
             state.prevHandY = state.handY;
         } 
         
-        // Reset Orientation when Contracted (Fist)
-        // If openness drops below 0.15, smoothly dampen rotation back to 0,0,0
         if (state.openness < 0.15) {
-             // Dampen current velocity strongly
              state.rotVelocityX *= 0.5;
              state.rotVelocityY *= 0.5;
              
-             // Smoothly lerp rotation angles to 0
              particleSystem.rotation.x += (0 - particleSystem.rotation.x) * 0.1;
              particleSystem.rotation.y += (0 - particleSystem.rotation.y) * 0.1;
              particleSystem.rotation.z += (0 - particleSystem.rotation.z) * 0.1;
         } else {
-             // Normal friction when not resetting
              state.rotVelocityX *= 0.90;
              state.rotVelocityY *= 0.90;
              
-             // Apply idle rotation if no interaction, otherwise use momentum
              if (!state.handDetected && Math.abs(state.rotVelocityX) < 0.001 && Math.abs(state.rotVelocityY) < 0.001) {
-                  particleSystem.rotation.y += 0.002; // Idle spin
+                  particleSystem.rotation.y += 0.002; 
              } else {
                   particleSystem.rotation.y += state.rotVelocityY;
                   particleSystem.rotation.x += state.rotVelocityX;
