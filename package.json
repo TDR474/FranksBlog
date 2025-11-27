@@ -60,7 +60,7 @@
     "eventsource-parser": "^1.0.0",
     "framer-motion": "7.0.0",
     "gatsby": "^5.0.0-next",
-    "gatsby-plugin-mdx": "^5.13.1",
+    "gatsby-plugin-mdx": "^5.15.0",
     "gatsby-source-filesystem": "^5.0.0-next",
     "globby": "11.0.2",
     "gpt3-tokenizer": "^1.1.5",
