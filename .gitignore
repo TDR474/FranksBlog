@@ -73,6 +73,7 @@ cypress/videos
 
 .vscode/settings.json
 
+core/components/NS1/
 directory_structure.txt
 ssh25519
 *.pem
