@@ -67,7 +67,7 @@
     "graphql": "15.4.0",
     "graphql-request": "3.3.0",
     "gray-matter": "4.0.2",
-    "katex": "^0.16.10",
+    "katex": "^0.16.25",
     "lodash.merge": "4.6.2",
     "micromark": "^4.0.0",
     "micromark-extension-math": "^3.0.0",
