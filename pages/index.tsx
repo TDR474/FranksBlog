@@ -91,7 +91,7 @@ const IndexPage = (props: Props) => {
                 size="6"
                 weight="4"
               >
-                a Master's student in Computer Science at UPenn SEAS with a concentration in Artificial Intelligence. 
+                a Master's student in Computer Science at UPenn SEAS with a concentration in Artificial Intelligence.
 
               </Text>
               <Text> </Text>
@@ -111,7 +111,7 @@ const IndexPage = (props: Props) => {
               </Text>
             </H2>
             <H3>
-            <Text
+              <Text
                 css={{
                   fontFamily: '"Times New Roman", serif',
                   fontWeight: 300, // regular weight
@@ -122,10 +122,10 @@ const IndexPage = (props: Props) => {
                 size="5"
                 weight="4"
               >
-            This website is a collection of fundamental concepts that shaped my understanding of CS and AI. I hope you find them as helpful as I have. Enjoy!
-            </Text>
+                This website is a collection of fundamental concepts that shaped my understanding of CS and AI. I hope you find them as helpful as I have. Enjoy!
+              </Text>
             </H3>
-            
+
             <Flex
               gap={4}
               css={{
@@ -134,7 +134,7 @@ const IndexPage = (props: Props) => {
                 flexWrap: 'wrap',
               }}
             >
-              <a
+              {/* <a
                 href="https://www.linkedin.com/in/frank-zhu-55474914b/"
                 style={{ textDecoration: 'none' }}
                 tabIndex={-1}
@@ -148,7 +148,7 @@ const IndexPage = (props: Props) => {
                 <VisuallyHidden as="p">
                   Link redirects to my LinkedIn Profile.
                 </VisuallyHidden>
-              </a>
+              </a> */}
               <a
                 href="https://github.com/TDR474"
                 style={{ textDecoration: 'none' }}
@@ -219,6 +219,21 @@ const IndexPage = (props: Props) => {
                 </Button>
                 <VisuallyHidden as="p">
                   Link redirects to the Particle Simulator page
+                </VisuallyHidden>
+              </a>
+              <a
+                href="/quant-bayes.html"
+                style={{ textDecoration: 'none' }}
+                tabIndex={-1}
+              >
+                <Button
+                  variant="secondary"
+                  endIcon={<Icon.Play size="4" />}
+                >
+                  QuantBayes
+                </Button>
+                <VisuallyHidden as="p">
+                  Link redirects to the QuantBayes page
                 </VisuallyHidden>
               </a>
             </Flex>

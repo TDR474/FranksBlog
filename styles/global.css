@@ -1,3 +1,6 @@
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --font-display: 'Lora', serif;
   /* Keep other custom properties (variables) here */

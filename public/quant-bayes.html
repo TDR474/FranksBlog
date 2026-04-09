@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantBayes Calculator</title>
+
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.4s ease-out forwards',
+                        'fade-in-up': 'fadeInUp 0.2s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons (CDN) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Hide number input arrows/spinners */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        /* Custom scrollbar for math formulas */
+        .scrollbar-thin::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: rgba(156, 163, 175, 0.5);
+            border-radius: 20px;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-slate-50 dark:bg-gray-950 text-slate-900 dark:text-gray-100 min-h-screen transition-colors duration-300 font-sans">
+
+    <!-- Header -->
+    <header
+        class="px-6 py-4 flex justify-between items-center border-b border-slate-200 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10">
+        <div class="flex items-center gap-2">
+            <i data-lucide="activity" class="text-indigo-500 w-6 h-6"></i>
+            <h1 class="text-xl font-bold tracking-tight">QuantBayes</h1>
+        </div>
+        <button id="theme-toggle"
+            class="p-2 rounded-full transition-colors hover:bg-slate-200 dark:hover:bg-gray-800 text-slate-600 dark:text-gray-300 focus:outline-none">
+            <i data-lucide="sun" id="theme-icon-light" class="w-5 h-5 hidden"></i>
+            <i data-lucide="moon" id="theme-icon-dark" class="w-5 h-5"></i>
+        </button>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-6 md:p-8 mt-4">
+
+        <!-- SETUP PHASE -->
+        <div id="setup-phase" class="animate-fade-in">
+            <div
+                class="p-8 rounded-2xl shadow-sm border bg-white dark:bg-gray-900 border-slate-200 dark:border-gray-800">
+                <h2 class="text-2xl font-semibold mb-6 flex items-center gap-2">
+                    <i data-lucide="book-open" class="text-indigo-500 w-6 h-6"></i>
+                    Define the World
+                </h2>
+                <p class="mb-8 text-slate-600 dark:text-gray-400">
+                    To calculate precise probabilities, we first need to define the exact events.
+                    What are you trying to predict, and what new information did you observe?
+                </p>
+
+                <form id="setup-form" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2 opacity-80">1. Event A (Target Event)</label>
+                        <input type="text" id="event-a-input" required
+                            placeholder="e.g., The stock market crashing this year"
+                            class="w-full p-4 rounded-xl border focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-slate-50 dark:bg-gray-950 border-slate-300 dark:border-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600" />
+                        <p id="history-notice"
+                            class="text-xs text-indigo-500 dark:text-indigo-400 mt-2 hidden items-center gap-1">
+                            <i data-lucide="info" class="w-3 h-3"></i> Updating an existing chain.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-2 opacity-80">2. Event B (New Evidence)</label>
+                        <input type="text" id="event-b-input" required
+                            placeholder="e.g., Inflation data came in higher than expected"
+                            class="w-full p-4 rounded-xl border focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-slate-50 dark:bg-gray-950 border-slate-300 dark:border-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600" />
+                    </div>
+
+                    <div class="pt-4">
+                        <button type="submit"
+                            class="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl font-medium transition-transform active:scale-95">
+                            Analyze Probabilities <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- DASHBOARD PHASE -->
+        <div id="dashboard-phase" class="animate-fade-in hidden space-y-6">
+
+            <!-- Header Context -->
+            <div
+                class="p-6 rounded-2xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-gray-900 border-slate-200 dark:border-gray-800">
+                <div>
+                    <p class="text-sm uppercase tracking-wider text-indigo-500 font-semibold mb-1">Evaluating
+                        Probability</p>
+                    <h2 class="text-xl font-medium">A: <span class="display-a"></span></h2>
+                    <h3 class="text-md mt-1 text-slate-500 dark:text-gray-400">Given B: <span class="display-b"></span>
+                    </h3>
+                </div>
+                <button id="reset-btn"
+                    class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-gray-800 text-slate-500 dark:text-gray-400 focus:outline-none">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset All
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- Controls Column -->
+                <div class="lg:col-span-7 space-y-6">
+
+                    <!-- Prior Input -->
+                    <div class="p-6 rounded-2xl border bg-white dark:bg-gray-900 border-slate-200 dark:border-gray-800">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex flex-col">
+                                <div class="flex items-center">
+                                    <label class="font-semibold text-lg">Base Rate (Prior)</label>
+
+                                    <!-- Tooltip -->
+                                    <div class="relative flex items-center tooltip-wrapper">
+                                        <button
+                                            class="ml-2 transition-colors focus:outline-none text-gray-400 hover:text-indigo-500 tooltip-trigger">
+                                            <i data-lucide="info" class="w-4 h-4"></i>
+                                        </button>
+                                        <div
+                                            class="tooltip-content hidden absolute left-0 bottom-full mb-2 w-64 p-3 bg-gray-800 text-white text-sm rounded-lg shadow-xl z-50 animate-fade-in-up cursor-default">
+                                            <p class="font-semibold mb-1 text-indigo-300">Prior: P(<span
+                                                    class="font-bold text-indigo-400 display-a"></span>)</p>
+                                            <p class="text-gray-200 text-xs leading-relaxed">Frequentist view:
+                                                <strong><span class="display-prior"></span></strong> out of 100 times,
+                                                <span class="font-bold text-indigo-400 display-a"></span> naturally
+                                                occurs before considering any new evidence.
+                                            </p>
+                                            <div
+                                                class="absolute left-2 -bottom-2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-800">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                                <div class="text-sm opacity-75 mt-1 font-mono">
+                                    P(<span class="font-bold text-indigo-600 dark:text-indigo-400 display-a"></span>)
+                                </div>
+                            </div>
+                            <!-- Unified Input Pill -->
+                            <div
+                                class="flex items-center mt-1 sm:mt-0 rounded-xl border transition-all shadow-inner focus-within:ring-2 bg-white dark:bg-gray-950 border-slate-200 dark:border-gray-800 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 dark:focus-within:border-indigo-500/50">
+                                <input type="number" id="prior-num" min="0" max="100" step="any"
+                                    class="w-24 text-right py-2 pl-3 bg-transparent font-mono text-lg font-semibold outline-none text-indigo-600 dark:text-indigo-400" />
+                                <span
+                                    class="pr-3 pl-1 text-lg font-mono opacity-50 text-indigo-600 dark:text-indigo-400">%</span>
+                            </div>
+                        </div>
+                        <input type="range" id="prior-range" min="0.1" max="99.9" step="0.1"
+                            class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                    </div>
+
+                    <!-- Likelihood Inputs -->
+                    <div
+                        class="p-6 rounded-2xl border space-y-8 bg-white dark:bg-gray-900 border-slate-200 dark:border-gray-800">
+                        <h3
+                            class="font-semibold text-lg flex items-center border-b border-slate-200 dark:border-gray-800 pb-4">
+                            <i data-lucide="fingerprint" class="w-5 h-5 mr-2 text-indigo-500"></i>
+                            Evidence Strength
+                        </h3>
+
+                        <!-- Likelihood -->
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="flex flex-col max-w-[70%]">
+                                    <div class="flex items-center">
+                                        <label class="font-medium text-sm sm:text-base">Likelihood</label>
+
+                                        <!-- Tooltip -->
+                                        <div class="relative flex items-center tooltip-wrapper">
+                                            <button
+                                                class="ml-2 transition-colors focus:outline-none text-gray-400 hover:text-indigo-500 tooltip-trigger">
+                                                <i data-lucide="info" class="w-4 h-4"></i>
+                                            </button>
+                                            <div
+                                                class="tooltip-content hidden absolute left-0 bottom-full mb-2 w-64 p-3 bg-gray-800 text-white text-sm rounded-lg shadow-xl z-50 animate-fade-in-up cursor-default">
+                                                <p class="font-semibold mb-1 text-indigo-300">P(<span
+                                                        class="font-bold text-emerald-400 display-b"></span> | <span
+                                                        class="font-bold text-indigo-400 display-a"></span>)</p>
+                                                <p class="text-gray-200 text-xs leading-relaxed">Frequentist view: If
+                                                    <span class="font-bold text-indigo-400 display-a"></span> occurred,
+                                                    <strong><span class="display-likelihood"></span></strong> out of 100
+                                                    times would we observe <span
+                                                        class="font-bold text-emerald-400 display-b"></span>.
+                                                </p>
+                                                <div
+                                                    class="absolute left-2 -bottom-2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-800">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                    <div class="text-xs opacity-75 mt-1 font-mono leading-relaxed">
+                                        P(<span
+                                            class="font-bold text-emerald-600 dark:text-emerald-400 display-b"></span> |
+                                        <span class="font-bold text-indigo-600 dark:text-indigo-400 display-a"></span>)
+                                    </div>
+                                </div>
+                                <div
+                                    class="flex items-center mt-1 sm:mt-0 rounded-xl border transition-all shadow-inner focus-within:ring-2 bg-white dark:bg-gray-950 border-slate-200 dark:border-gray-800 focus-within:ring-emerald-500/20 focus-within:border-emerald-400 dark:focus-within:border-emerald-500/50">
+                                    <input type="number" id="likelihood-num" min="0" max="100" step="any"
+                                        class="w-24 text-right py-2 pl-3 bg-transparent font-mono text-lg font-semibold outline-none text-emerald-600 dark:text-emerald-400" />
+                                    <span
+                                        class="pr-3 pl-1 text-lg font-mono opacity-50 text-emerald-600 dark:text-emerald-400">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="likelihood-range" min="0" max="100" step="0.1"
+                                class="w-full h-2 bg-emerald-200 dark:bg-emerald-900/30 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
+                        </div>
+
+                        <!-- Alternative Likelihood -->
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="flex flex-col max-w-[70%]">
+                                    <div class="flex items-center">
+                                        <label class="font-medium text-sm sm:text-base">Alternative Likelihood</label>
+
+                                        <!-- Tooltip -->
+                                        <div class="relative flex items-center tooltip-wrapper">
+                                            <button
+                                                class="ml-2 transition-colors focus:outline-none text-gray-400 hover:text-indigo-500 tooltip-trigger">
+                                                <i data-lucide="info" class="w-4 h-4"></i>
+                                            </button>
+                                            <div
+                                                class="tooltip-content hidden absolute left-0 bottom-full mb-2 w-64 p-3 bg-gray-800 text-white text-sm rounded-lg shadow-xl z-50 animate-fade-in-up cursor-default">
+                                                <p class="font-semibold mb-1 text-indigo-300">P(<span
+                                                        class="font-bold text-emerald-400 display-b"></span> | not <span
+                                                        class="font-bold text-indigo-400 display-a"></span>)</p>
+                                                <p class="text-gray-200 text-xs leading-relaxed">Frequentist view: If
+                                                    <span class="font-bold text-indigo-400 display-a"></span> did NOT
+                                                    occur, <strong><span
+                                                            class="display-likelihood-not-a"></span></strong> out of 100
+                                                    times would we observe <span
+                                                        class="font-bold text-emerald-400 display-b"></span> anyway.
+                                                </p>
+                                                <div
+                                                    class="absolute left-2 -bottom-2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-800">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                    <div class="text-xs opacity-75 mt-1 font-mono leading-relaxed">
+                                        P(<span
+                                            class="font-bold text-emerald-600 dark:text-emerald-400 display-b"></span> |
+                                        not <span
+                                            class="font-bold text-indigo-600 dark:text-indigo-400 display-a"></span>)
+                                    </div>
+                                </div>
+                                <div
+                                    class="flex items-center mt-1 sm:mt-0 rounded-xl border transition-all shadow-inner focus-within:ring-2 bg-white dark:bg-gray-950 border-slate-200 dark:border-gray-800 focus-within:ring-rose-500/20 focus-within:border-rose-400 dark:focus-within:border-rose-500/50">
+                                    <input type="number" id="likelihood-not-a-num" min="0" max="100" step="any"
+                                        class="w-24 text-right py-2 pl-3 bg-transparent font-mono text-lg font-semibold outline-none text-rose-600 dark:text-rose-400" />
+                                    <span
+                                        class="pr-3 pl-1 text-lg font-mono opacity-50 text-rose-600 dark:text-rose-400">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="likelihood-not-a-range" min="0" max="100" step="0.1"
+                                class="w-full h-2 bg-rose-200 dark:bg-rose-900/30 rounded-lg appearance-none cursor-pointer accent-rose-500" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Column -->
+                <div class="lg:col-span-5 space-y-6">
+
+                    <!-- Big Number Result -->
+                    <div
+                        class="p-8 rounded-3xl border shadow-lg relative bg-white dark:bg-gray-900 border-slate-200 dark:border-gray-800">
+                        <!-- Decorative background -->
+                        <div class="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+                            <div
+                                class="absolute -top-20 -right-20 w-40 h-40 bg-indigo-500 rounded-full blur-3xl opacity-20">
+                            </div>
+                        </div>
+
+                        <div class="relative z-10 flex flex-col h-full justify-between">
+                            <div>
+                                <div class="flex flex-col mb-4">
+                                    <div class="flex items-center">
+                                        <h3 class="font-medium text-lg opacity-80">Updated Probability</h3>
+
+                                        <!-- Tooltip -->
+                                        <div class="relative flex items-center tooltip-wrapper">
+                                            <button
+                                                class="ml-2 transition-colors focus:outline-none text-gray-400 hover:text-indigo-500 tooltip-trigger">
+                                                <i data-lucide="info" class="w-4 h-4"></i>
+                                            </button>
+                                            <div
+                                                class="tooltip-content hidden absolute left-0 bottom-full mb-2 w-64 p-3 bg-gray-800 text-white text-sm rounded-lg shadow-xl z-50 animate-fade-in-up cursor-default">
+                                                <p class="font-semibold mb-1 text-indigo-300">Posterior: P(<span
+                                                        class="font-bold text-indigo-400 display-a"></span> | <span
+                                                        class="font-bold text-emerald-400 display-b"></span>)</p>
+                                                <p class="text-gray-200 text-xs leading-relaxed">Frequentist view: Out
+                                                    of 100 times we observe <span
+                                                        class="font-bold text-emerald-400 display-b"></span>, <span
+                                                        class="font-bold text-indigo-400 display-a"></span> is actually
+                                                    true <strong><span class="display-posterior"></span></strong> times.
+                                                </p>
+                                                <div
+                                                    class="absolute left-2 -bottom-2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-800">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                    <div class="text-sm opacity-75 mt-1 font-mono">
+                                        P(<span class="font-bold text-indigo-600 dark:text-indigo-400 display-a"></span>
+                                        | <span
+                                            class="font-bold text-emerald-600 dark:text-emerald-400 display-b"></span>)
+                                    </div>
+                                </div>
+                                <div class="flex items-baseline gap-2 mb-6">
+                                    <span id="big-posterior-display"
+                                        class="text-6xl font-bold font-mono tracking-tight text-indigo-500">0.0</span>
+                                    <span class="text-3xl text-indigo-500/50">%</span>
+                                </div>
+                            </div>
+
+                            <div class="space-y-6">
+                                <div id="summary-text"
+                                    class="p-4 rounded-xl text-sm leading-relaxed bg-slate-50 dark:bg-gray-950/50 text-slate-700 dark:text-gray-300">
+                                    <!-- Summary injected via JS -->
+                                </div>
+
+                                <!-- Formula Display -->
+                                <div class="pt-6 border-t border-slate-200 dark:border-gray-800">
+                                    <div
+                                        class="text-xs uppercase tracking-wider font-semibold opacity-50 mb-4 text-center">
+                                        Bayes' Theorem</div>
+                                    <div class="flex flex-col items-center justify-center font-mono text-sm space-y-6">
+
+                                        <!-- General Formula -->
+                                        <div class="flex items-center gap-3 overflow-x-auto w-full pb-2 scrollbar-thin">
+                                            <div class="flex items-center gap-3 min-w-max mx-auto px-2">
+                                                <span class="shrink-0 text-base">P(<span
+                                                        class="text-indigo-500 font-bold">A</span>|<span
+                                                        class="text-emerald-500 font-bold">B</span>)</span>
+                                                <span class="shrink-0 text-base">=</span>
+                                                <div class="flex flex-col items-center">
+                                                    <span
+                                                        class="border-b border-current pb-2 px-2 whitespace-nowrap">P(<span
+                                                            class="text-emerald-500 font-bold">B</span>|<span
+                                                            class="text-indigo-500 font-bold">A</span>) × P(<span
+                                                            class="text-indigo-500 font-bold">A</span>)</span>
+                                                    <span class="pt-2 px-2 whitespace-nowrap">P(<span
+                                                            class="text-emerald-500 font-bold">B</span>|<span
+                                                            class="text-indigo-500 font-bold">A</span>)P(<span
+                                                            class="text-indigo-500 font-bold">A</span>) + P(<span
+                                                            class="text-emerald-500 font-bold">B</span>|<span
+                                                            class="text-rose-500 font-bold">~A</span>)P(<span
+                                                            class="text-rose-500 font-bold">~A</span>)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Applied Numbers -->
+                                        <div
+                                            class="w-full overflow-x-auto rounded-xl bg-slate-100 dark:bg-gray-950/50 text-xs scrollbar-thin">
+                                            <div class="flex items-center gap-3 min-w-max mx-auto px-4 pt-4 pb-6">
+                                                <span
+                                                    class="text-indigo-500 font-bold text-sm whitespace-nowrap shrink-0 display-posterior"></span><span
+                                                    class="text-indigo-500 font-bold text-sm">%</span>
+                                                <span class="shrink-0 text-sm opacity-50">=</span>
+                                                <div class="flex flex-col items-center whitespace-nowrap opacity-90">
+                                                    <span class="border-b border-current pb-2 px-4">
+                                                        (<span
+                                                            class="text-emerald-500 font-bold display-likelihood"></span><span
+                                                            class="text-emerald-500 font-bold">%</span> × <span
+                                                            class="text-indigo-500 font-bold display-prior"></span><span
+                                                            class="text-indigo-500 font-bold">%</span>)
+                                                    </span>
+                                                    <span class="pt-2 px-4">
+                                                        (<span
+                                                            class="text-emerald-500 font-bold display-likelihood"></span><span
+                                                            class="text-emerald-500 font-bold">%</span> × <span
+                                                            class="text-indigo-500 font-bold display-prior"></span><span
+                                                            class="text-indigo-500 font-bold">%</span>) + (<span
+                                                            class="text-rose-500 font-bold display-likelihood-not-a"></span><span
+                                                            class="text-rose-500 font-bold">%</span> × <span
+                                                            class="text-rose-500 font-bold display-prior-inv"></span><span
+                                                            class="text-rose-500 font-bold">%</span>)
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chain Action -->
+                    <button id="chain-btn"
+                        class="w-full p-6 rounded-2xl border border-dashed flex flex-col items-center justify-center gap-3 transition-all border-slate-300 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-gray-900/50 text-slate-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 focus:outline-none">
+                        <div class="p-3 rounded-full bg-slate-100 dark:bg-gray-800">
+                            <i data-lucide="plus" class="w-6 h-6"></i>
+                        </div>
+                        <div class="text-center">
+                            <span class="block font-medium mb-1">Add another piece of evidence</span>
+                            <span class="text-xs opacity-70 text-balance">Use <span class="display-posterior"></span>%
+                                as the new Prior and continue updating the probability.</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- History Ribbon (Injected via JS if exists) -->
+            <div id="history-container"
+                class="mt-8 p-6 rounded-2xl border bg-white dark:bg-gray-900 border-slate-200 dark:border-gray-800 hidden">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-500 mb-4">
+                    Probability Update Chain</h3>
+                <div id="history-list" class="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
+                    <!-- Dynamic history items -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Application Logic -->
+    <script>
+        // --- State Management ---
+        const state = {
+            isDarkMode: true,
+            phase: 'setup',
+            eventA: '',
+            eventB: '',
+            priorStr: '50',
+            likelihoodStr: '80',
+            likelihoodNotAStr: '20',
+            history: []
+        };
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- Utility Functions ---
+        const formatProb = (num) => {
+            if (typeof num !== 'number') return '0.0';
+            if (num < 1 || num > 99) return num.toFixed(3);
+            return num.toFixed(1);
+        };
+
+        const escapeHtml = (unsafe) => {
+            return (unsafe || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        };
+
+        // --- Core Bayesian Math & UI Sync ---
+        function updateDOM() {
+            // 1. Math calculations
+            const prior = state.priorStr === '' ? 0 : Number(state.priorStr);
+            const likelihood = state.likelihoodStr === '' ? 0 : Number(state.likelihoodStr);
+            const likelihoodNotA = state.likelihoodNotAStr === '' ? 0 : Number(state.likelihoodNotAStr);
+
+            const pA = prior / 100;
+            const pB_given_A = likelihood / 100;
+            const pB_given_not_A = likelihoodNotA / 100;
+            const pNotA = 1 - pA;
+            const pB = (pB_given_A * pA) + (pB_given_not_A * pNotA);
+
+            let posteriorCalc = 0;
+            if (pB !== 0) {
+                posteriorCalc = (pB_given_A * pA) / pB;
+                if (posteriorCalc > 1) posteriorCalc = 1;
+                if (posteriorCalc < 0) posteriorCalc = 0;
+            }
+            const posterior = posteriorCalc * 100;
+
+            let bayesFactor = Infinity;
+            if (pB_given_not_A > 0.0001) bayesFactor = pB_given_A / pB_given_not_A;
+
+            // 2. Phase Visibility
+            document.getElementById('setup-phase').style.display = state.phase === 'setup' ? 'block' : 'none';
+            document.getElementById('dashboard-phase').style.display = state.phase === 'dashboard' ? 'block' : 'none';
+
+            if (state.phase !== 'dashboard') return; // Skip updating dashboard if hidden
+
+            // 3. Update Text Content (Target Events)
+            document.querySelectorAll('.display-a').forEach(el => el.textContent = state.eventA || 'Event A');
+            document.querySelectorAll('.display-b').forEach(el => el.textContent = state.eventB || 'Event B');
+
+            // 4. Update Inputs (Sync fields and sliders, careful not to overwrite active input)
+            if (document.activeElement.id !== 'prior-num') document.getElementById('prior-num').value = state.priorStr;
+            document.getElementById('prior-range').value = prior;
+
+            if (document.activeElement.id !== 'likelihood-num') document.getElementById('likelihood-num').value = state.likelihoodStr;
+            document.getElementById('likelihood-range').value = likelihood;
+
+            if (document.activeElement.id !== 'likelihood-not-a-num') document.getElementById('likelihood-not-a-num').value = state.likelihoodNotAStr;
+            document.getElementById('likelihood-not-a-range').value = likelihoodNotA;
+
+            // 5. Update Math Displays
+            document.getElementById('big-posterior-display').textContent = formatProb(posterior);
+            document.querySelectorAll('.display-posterior').forEach(el => el.textContent = formatProb(posterior));
+            document.querySelectorAll('.display-prior').forEach(el => el.textContent = formatProb(prior));
+            document.querySelectorAll('.display-prior-inv').forEach(el => el.textContent = formatProb(100 - prior));
+            document.querySelectorAll('.display-likelihood').forEach(el => el.textContent = formatProb(likelihood));
+            document.querySelectorAll('.display-likelihood-not-a').forEach(el => el.textContent = formatProb(likelihoodNotA));
+
+            // 6. Generate Summary
+            const change = posterior - prior;
+            let strength = "weak";
+            if (bayesFactor > 10 || bayesFactor < 0.1) strength = "strong";
+            if (bayesFactor > 100 || bayesFactor < 0.01) strength = "decisive";
+            const direction = change > 0 ? "increased" : "decreased";
+
+            let summaryHTML = "";
+            if (Math.abs(change) < 0.01) {
+                summaryHTML = `This evidence doesn't change the probability much. It remains around ${formatProb(posterior)}%.`;
+            } else {
+                summaryHTML = `Observing "${escapeHtml(state.eventB)}" has ${direction} the probability of "${escapeHtml(state.eventA)}" from ${formatProb(prior)}% to ${formatProb(posterior)}%. This represents ${strength} evidence (Bayes Factor: ${bayesFactor === Infinity ? '∞' : bayesFactor.toFixed(2)}).`;
+            }
+            document.getElementById('summary-text').textContent = summaryHTML;
+
+            // 7. Update History Ribbon
+            const historyContainer = document.getElementById('history-container');
+            const historyList = document.getElementById('history-list');
+            if (state.history.length > 0) {
+                historyContainer.style.display = 'block';
+                let hHTML = '';
+                state.history.forEach((step, idx) => {
+                    hHTML += `
+                        <div class="min-w-[200px] p-4 rounded-xl text-sm border flex-shrink-0 bg-slate-50 dark:bg-gray-950 border-slate-200 dark:border-gray-800">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-mono opacity-50">Step ${idx + 1}</span>
+                                <span class="font-mono text-indigo-500 font-bold">${formatProb(step.posterior)}%</span>
+                            </div>
+                            <p class="line-clamp-2 text-xs opacity-80" title="${escapeHtml(step.eventB)}">+ ${escapeHtml(step.eventB)}</p>
+                        </div>
+                    `;
+                });
+                hHTML += `
+                    <div class="min-w-[200px] p-4 rounded-xl border border-dashed flex items-center justify-center opacity-50 border-slate-300 dark:border-gray-700">
+                        <span class="text-xs text-slate-500 dark:text-gray-400">Current Setup...</span>
+                    </div>
+                `;
+                historyList.innerHTML = hHTML;
+            } else {
+                historyContainer.style.display = 'none';
+                historyList.innerHTML = '';
+            }
+        }
+
+        // --- Event Listeners ---
+
+        // Theme Toggle
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            state.isDarkMode = !state.isDarkMode;
+            if (state.isDarkMode) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-icon-light').classList.add('hidden');
+                document.getElementById('theme-icon-dark').classList.remove('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('theme-icon-dark').classList.add('hidden');
+                document.getElementById('theme-icon-light').classList.remove('hidden');
+            }
+        });
+
+        // Setup Form Submit
+        document.getElementById('setup-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const inputA = document.getElementById('event-a-input').value;
+            const inputB = document.getElementById('event-b-input').value;
+            if (inputA.trim() && inputB.trim()) {
+                state.eventA = inputA;
+                state.eventB = inputB;
+                state.phase = 'dashboard';
+                updateDOM();
+            }
+        });
+
+        // Reset Button
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            state.phase = 'setup';
+            state.eventA = '';
+            state.eventB = '';
+            state.priorStr = '50';
+            state.likelihoodStr = '80';
+            state.likelihoodNotAStr = '20';
+            state.history = [];
+
+            document.getElementById('event-a-input').value = '';
+            document.getElementById('event-b-input').value = '';
+            document.getElementById('history-notice').classList.add('hidden');
+            document.getElementById('history-notice').classList.remove('flex');
+            document.getElementById('event-a-input').disabled = false;
+            document.getElementById('event-a-input').classList.remove('opacity-50', 'cursor-not-allowed');
+
+            updateDOM();
+        });
+
+        // Add Evidence to Chain
+        document.getElementById('chain-btn').addEventListener('click', () => {
+            // Recalculate to push exact snapshot to history
+            const prior = state.priorStr === '' ? 0 : Number(state.priorStr);
+            const likelihood = state.likelihoodStr === '' ? 0 : Number(state.likelihoodStr);
+            const likelihoodNotA = state.likelihoodNotAStr === '' ? 0 : Number(state.likelihoodNotAStr);
+            const pA = prior / 100;
+            const pB_given_A = likelihood / 100;
+            const pB_given_not_A = likelihoodNotA / 100;
+            const pB = (pB_given_A * pA) + (pB_given_not_A * (1 - pA));
+            const posterior = pB === 0 ? 0 : ((pB_given_A * pA) / pB) * 100;
+
+            state.history.push({
+                eventA: state.eventA,
+                eventB: state.eventB,
+                prior,
+                posterior: Math.max(0, Math.min(100, posterior)),
+                likelihood,
+                likelihoodNotA
+            });
+
+            // Set up next step
+            state.priorStr = String(Math.max(0, Math.min(100, posterior)));
+            state.eventB = '';
+            state.likelihoodStr = '80';
+            state.likelihoodNotAStr = '20';
+            state.phase = 'setup';
+
+            // Update setup UI for chaining
+            document.getElementById('event-b-input').value = '';
+            document.getElementById('history-notice').classList.remove('hidden');
+            document.getElementById('history-notice').classList.add('flex');
+            document.getElementById('event-a-input').disabled = true;
+            document.getElementById('event-a-input').classList.add('opacity-50', 'cursor-not-allowed');
+
+            updateDOM();
+        });
+
+        // Data Binding: Prior
+        document.getElementById('prior-num').addEventListener('input', (e) => { state.priorStr = e.target.value; updateDOM(); });
+        document.getElementById('prior-range').addEventListener('input', (e) => { state.priorStr = e.target.value; updateDOM(); });
+
+        // Data Binding: Likelihood
+        document.getElementById('likelihood-num').addEventListener('input', (e) => { state.likelihoodStr = e.target.value; updateDOM(); });
+        document.getElementById('likelihood-range').addEventListener('input', (e) => { state.likelihoodStr = e.target.value; updateDOM(); });
+
+        // Data Binding: Alternative Likelihood
+        document.getElementById('likelihood-not-a-num').addEventListener('input', (e) => { state.likelihoodNotAStr = e.target.value; updateDOM(); });
+        document.getElementById('likelihood-not-a-range').addEventListener('input', (e) => { state.likelihoodNotAStr = e.target.value; updateDOM(); });
+
+        // --- Tooltip Logic (Click & Hover) ---
+        document.querySelectorAll('.tooltip-wrapper').forEach(wrapper => {
+            const trigger = wrapper.querySelector('.tooltip-trigger');
+            const content = wrapper.querySelector('.tooltip-content');
+            let isHovered = false;
+            let isClicked = false;
+
+            const syncVisibility = () => {
+                if (isHovered || isClicked) {
+                    content.classList.remove('hidden');
+                    trigger.classList.add('text-indigo-500');
+                    trigger.classList.remove('text-gray-400');
+                } else {
+                    content.classList.add('hidden');
+                    trigger.classList.remove('text-indigo-500');
+                    trigger.classList.add('text-gray-400');
+                }
+            };
+
+            trigger.addEventListener('mouseenter', () => { isHovered = true; syncVisibility(); });
+            trigger.addEventListener('mouseleave', () => { isHovered = false; syncVisibility(); });
+            trigger.addEventListener('click', (e) => {
+                e.preventDefault();
+                isClicked = !isClicked;
+                syncVisibility();
+            });
+
+            // Dismiss if clicking outside
+            document.addEventListener('mousedown', (e) => {
+                if (!wrapper.contains(e.target)) {
+                    isClicked = false;
+                    syncVisibility();
+                }
+            });
+        });
+
+        // Initialize display
+        updateDOM();
+    </script>
+</body>
+
+</html>
